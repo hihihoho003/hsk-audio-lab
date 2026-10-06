@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="vi" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HSK Audio Lab - Luyện Nghe & Shadowing Tiếng Trung (Google TTS & Edge Voice)</title>
+  
+  <!-- Google Fonts: Inter & Noto Sans SC for crisp Hanzi -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Pinyin Pro (CDN for automatic Chinese tone marks) -->
+  <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.19.6/dist/index.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'Noto Sans SC', 'sans-serif'],
+            chinese: ['Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', 'sans-serif']
+          },
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              200: '#c7d2fe',
+              300: '#a5b4fc',
+              400: '#818cf8',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+              800: '#3730a3',
+              900: '#312e81',
+              950: '#1e1b4b'
+            }
+          },
+          animation: {
+            'soundwave': 'soundwave 1.2s ease-in-out infinite',
+            'pulse-subtle': 'pulseSubtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'fadeIn': 'fadeIn 0.25s ease-out forwards',
+          },
+          keyframes: {
+            soundwave: {
+              '0%, 100%': { height: '6px' },
+              '50%': { height: '22px' }
+            },
+            pulseSubtle: {
+              '0%, 100%': { opacity: '1' },
+              '50%': { opacity: '0.6' }
+            },
+            fadeIn: {
+              '0%': { opacity: '0', transform: 'translateY(4px)' },
+              '100%': { opacity: '1', transform: 'translateY(0)' }
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Custom Cosmic Stylesheet -->
+  <link rel="stylesheet" href="./style.css">
+</head>
+
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen flex flex-col selection:bg-indigo-600 selection:text-white relative overflow-x-hidden" style="background-image: radial-gradient(rgba(99, 102, 241, 0.15) 1px, transparent 0); background-size: 32px 32px;">
+
+  <!-- 3D Interactive Starfield Canvas -->
+  <canvas id="spaceCanvas" class="fixed inset-0 pointer-events-none -z-10"></canvas>
+
+  <!-- 3 Nebula Ambient Blobs (Cosmic Background & Nebula Aurora) -->
+  <div class="pointer-events-none fixed inset-0 overflow-hidden -z-20" aria-hidden="true">
+    <!-- Quầng sáng 1 (Góc trên trái): Màu Indigo/Tím thẫm -->
+    <div class="absolute -top-32 -left-32 w-[500px] h-[500px] bg-indigo-600/15 rounded-full blur-[130px] animate-pulse-subtle"></div>
+    <!-- Quầng sáng 2 (Góc trên phải / trung tâm): Màu Xanh Cyan/Emerald dịu -->
+    <div class="absolute top-20 right-0 lg:right-20 w-[450px] h-[450px] bg-cyan-500/10 rounded-full blur-[140px] animate-pulse-subtle" style="animation-delay: 1.5s;"></div>
+    <!-- Quầng sáng 3 (Phía dưới): Màu Tím Magenta -->
+    <div class="absolute -bottom-40 left-1/4 w-[600px] h-[400px] bg-purple-700/10 rounded-full blur-[150px] animate-pulse-subtle" style="animation-delay: 3s;"></div>
+  </div>
+
+  <!-- Top App Navigation Bar (Frosted Glassmorphism 2.0) -->
+  <header class="border-b border-white/10 bg-slate-950/75 backdrop-blur-xl shadow-[0_4px_24px_0_rgba(0,0,0,0.4)] sticky top-0 z-40 px-4 lg:px-8 py-3 transition-colors">
+    <div class="max-w-7xl mx-auto flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <!-- Huy hiệu người dùng -->
+        <div id="userGreetingBadge" class="bg-indigo-950/60 border border-indigo-500/30 text-indigo-200 px-3 py-1.5 rounded-xl cursor-pointer hover:border-indigo-400 transition text-[13px] font-medium flex items-center space-x-1.5 shadow-[0_0_10px_rgba(99,102,241,0.2)]" title="Đổi tên">
+          <span>👨‍🚀 Chỉ huy: <span id="displayedUserName">Bạn</span></span>
+        </div>
+        
+        <button id="toggleSidebarBtn" class="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/80 transition" title="Đóng/Mở cài đặt (Ctrl+B)">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect width="18" height="18" x="3" y="3" rx="2"/>
+            <path d="M9 3v18"/>
+          </svg>
+        </button>
+        <div class="relative group cursor-pointer flex items-center justify-center">
+          <!-- Vòng hào quang tỏa sáng ngầm (Ambient Glow) -->
+          <div class="absolute -inset-1 bg-gradient-to-r from-cyan-500 via-indigo-600 to-fuchsia-500 rounded-2xl blur-md opacity-70 group-hover:opacity-100 group-hover:blur-lg transition-all duration-500 animate-pulse-slow"></div>
+          
+          <!-- Khung Badge Kính Không Gian -->
+          <div class="relative w-11 h-11 rounded-xl bg-slate-900/90 border border-cyan-400/50 backdrop-blur-md flex items-center justify-center shadow-[inset_0_1px_1px_rgba(255,255,255,0.3)] group-hover:scale-105 group-hover:border-cyan-300 transition-all duration-300 overflow-hidden">
+            
+            <!-- Quầng tia laser quét qua logo khi hover -->
+            <div class="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out"></div>
+            
+            <!-- SVG Lõi Âm Thanh & Quỹ Đạo Viễn Tưởng -->
+            <svg class="w-6 h-6 text-cyan-300 drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <defs>
+                <linearGradient id="cosmicGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#22d3ee" />
+                  <stop offset="50%" stop-color="#818cf8" />
+                  <stop offset="100%" stop-color="#e879f9" />
+                </linearGradient>
+              </defs>
+              
+              <!-- Vòng tròn quỹ đạo âm thanh phát sáng xoay tròn -->
+              <circle cx="12" cy="12" r="9" stroke="url(#cosmicGrad)" stroke-width="1.5" stroke-dasharray="2 3" class="animate-spin-very-slow origin-center" opacity="0.8" />
+              
+              <!-- Củ Mic Quantum lõi năng lượng -->
+              <path d="M12 4a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V7a3 3 0 0 0-3-3Z" fill="url(#cosmicGrad)" stroke="#ffffff" stroke-width="1.2" />
+              
+              <!-- Vòm thu thanh & Sóng âm vươn cánh -->
+              <path d="M19 10v1a7 7 0 0 1-14 0v-1" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round" />
+              <path d="M12 18v3" stroke="#818cf8" stroke-width="1.8" stroke-linecap="round" />
+              <path d="M8 21h8" stroke="#c084fc" stroke-width="1.8" stroke-linecap="round" />
+              
+              <!-- Hạt nhân phát sáng trung tâm -->
+              <circle cx="12" cy="9.5" r="1" fill="#ffffff" class="animate-ping" opacity="0.9" />
+            </svg>
+          </div>
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <h1 class="text-lg lg:text-xl font-bold bg-gradient-to-r from-white via-indigo-200 to-purple-300 bg-clip-text text-transparent">
+              <span class="bg-gradient-to-r from-cyan-400 via-indigo-300 to-fuchsia-400 bg-clip-text text-transparent font-black tracking-wider">HSK</span> Audio Lab
+            </h1>
+            <span class="text-[10px] uppercase font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.2)]">
+              Free TTS • Gemini AI
+            </span>
+          </div>
+          <p class="text-xs text-slate-400 hidden sm:block">Luyện nghe & nhại giọng tiếng Trung chuẩn chất lượng cao với Google TTS, Edge Voice & Trợ lý Gemini AI</p>
+        </div>
+      </div>
+
+      <!-- Quick status indicator & header actions -->
+      <div class="flex items-center space-x-2 sm:space-x-4">
+        <!-- Engine Status Badge -->
+        <div id="engineStatusBadge" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.15)]">
+          <span id="engineStatusDot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span id="engineStatusText" class="truncate max-w-[140px] sm:max-w-none">Google TTS & Edge Sẵn Sàng</span>
+        </div>
+
+        <!-- Preload counter badge -->
+        <div id="cacheQuickBadge" class="hidden sm:flex items-center space-x-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-950/60 border border-indigo-800/40 text-indigo-300" title="Số câu đã sẵn sàng bộ nhớ đệm">
+          <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          <span id="cacheCountText">0 câu sẵn sàng</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container: 2-Column Responsive Layout -->
+  <main class="max-w-7xl mx-auto w-full flex-1 p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+    
+    <!-- ========================================== -->
+    <!-- CỘT TRÁI: Cài đặt & Tiện ích (lg:col-span-4) -->
+    <!-- ========================================== -->
+    <aside class="lg:col-span-4 space-y-5 lg:sticky lg:top-20">
+      
+      <!-- CARD 1: Cài đặt Nguồn Phát Âm Thanh Miễn Phí (Google TTS & Edge) -->
+      <div class="bg-slate-900/65 backdrop-blur-xl border border-white/10 hover:border-indigo-500/30 shadow-[0_8px_32px_0_rgba(0,0,0,0.36)] rounded-2xl p-4 lg:p-5 space-y-4 transition-all duration-300">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+          <div class="flex items-center space-x-2">
+            <div class="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+              </svg>
+            </div>
+            <h2 class="text-sm font-semibold text-slate-200">Nguồn Phát Âm Thanh</h2>
+          </div>
+          <span class="text-[11px] text-emerald-400 font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center space-x-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+            <span>100% Miễn Phí</span>
+          </span>
+        </div>
+
+        <!-- Banner Thông Báo Không Cần Key & Vĩnh Viễn Miễn Phí -->
+        <div class="p-3 rounded-xl bg-gradient-to-r from-emerald-950/60 to-slate-900/60 border border-emerald-500/30 text-xs text-emerald-300 space-y-1 shadow-[0_0_15px_rgba(16,185,129,0.1)]">
+          <div class="flex items-center space-x-1.5 font-semibold text-emerald-200">
+            <svg class="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>Tự Động Phát - Không Cần Key</span>
+          </div>
+          <p class="text-[11px] text-slate-400 leading-relaxed">
+            Đã thay thế hoàn toàn ElevenLabs. Không giới hạn ký tự, phát mượt mà ngay lập tức và <strong class="text-emerald-300">không bao giờ bị lỗi 402</strong>!
+          </p>
+        </div>
+
+        <!-- Chọn Nguồn Phát TTS (Google TTS vs Edge / Trình Duyệt) -->
+        <div class="space-y-1.5">
+          <label class="text-xs font-medium text-slate-300 block">Chọn Nguồn Phát Âm Thanh</label>
+          <div class="grid grid-cols-2 gap-2">
+            <button 
+              type="button" 
+              id="engineGoogleBtn" 
+              class="engine-tab-btn p-2.5 rounded-xl border text-left transition-all duration-200 flex flex-col justify-between bg-indigo-600/20 border-indigo-500/80 text-white shadow-sm ring-1 ring-cyan-400/40 hover:shadow-[0_0_15px_rgba(99,102,241,0.4)]"
+              data-engine="google_tts"
+            >
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold text-indigo-300">Google TTS</span>
+                <span class="text-[10px] text-indigo-400 font-mono">MP3</span>
+              </div>
+              <div class="text-[11px] text-slate-400 mt-1">Chuẩn phát âm phổ thông</div>
+            </button>
+
+            <button 
+              type="button" 
+              id="engineEdgeBtn" 
+              class="engine-tab-btn p-2.5 rounded-xl border text-left transition-all duration-200 flex flex-col justify-between bg-slate-950/60 border-white/10 text-slate-300 hover:bg-slate-800/80 hover:border-indigo-500/30"
+              data-engine="edge_speech"
+            >
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold text-slate-300">Edge / Browser</span>
+                <span class="text-[10px] text-emerald-400 font-mono">Neural AI</span>
+              </div>
+              <div class="text-[11px] text-slate-400 mt-1">Giọng tự nhiên 0ms</div>
+            </button>
+          </div>
+        </div>
+
+        <!-- Voice Selection -->
+        <div class="space-y-1.5">
+          <label for="voiceSelect" class="text-xs font-medium text-slate-300 flex items-center justify-between">
+            <span id="voiceSelectLabel">Giọng Đọc Google</span>
+            <button type="button" id="refreshVoicesBtn" class="hidden text-[11px] text-indigo-400 hover:text-indigo-300 transition flex items-center space-x-1">
+              <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span>Quét lại giọng</span>
+            </button>
+          </label>
+          <select 
+            id="voiceSelect" 
+            class="w-full bg-slate-950/60 border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 transition backdrop-blur-md"
+          >
+            <!-- Rendered dynamically -->
+            <option value="zh-CN" selected>🇨🇳 Tiếng Trung Phổ Thông (Mandarin Standard - Chuẩn HSK)</option>
+            <option value="zh-TW">🇹🇼 Tiếng Trung Đài Loan (Taiwanese Mandarin)</option>
+          </select>
+          <p id="voiceHelpText" class="text-[11px] text-slate-500">Giọng đọc chuẩn Google TTS chất lượng cao với âm vị Bắc Kinh chuẩn mực.</p>
+        </div>
+
+        <!-- Smart Fallback Toggle -->
+        <div class="pt-2 border-t border-white/10 flex items-center justify-between">
+          <div>
+            <label for="fallbackToggle" class="text-xs font-medium text-slate-200 cursor-pointer block">Dự phòng thông minh (Auto-Fallback)</label>
+            <p class="text-[11px] text-slate-500">Tự động chuyển nguồn nếu gặp sự cố mạng</p>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="fallbackToggle" class="sr-only peer" checked>
+            <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600 shadow-[0_0_10px_rgba(16,185,129,0.3)]"></div>
+          </label>
+        </div>
+      </div>
+
+      <!-- CARD 2: Cài đặt Luyện Nghe & Shadowing (Frosted Glassmorphism 2.0) -->
+      <div class="bg-slate-900/65 backdrop-blur-xl border border-white/10 hover:border-indigo-500/30 shadow-[0_8px_32px_0_rgba(0,0,0,0.36)] rounded-2xl p-4 lg:p-5 space-y-4 transition-all duration-300">
+        <div class="flex items-center space-x-2 pb-3 border-b border-white/10">
+          <div class="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 class="text-sm font-semibold text-slate-200">Cấu hình Shadowing & Tốc độ</h2>
+        </div>
+
+        <!-- Playback Rate -->
+        <div class="space-y-1.5">
+          <label class="text-xs font-medium text-slate-300 flex justify-between">
+            <span>Tốc độ đọc (Speed)</span>
+            <span id="speedValueLabel" class="text-cyan-400 font-mono text-xs font-semibold drop-shadow-[0_0_6px_rgba(34,211,238,0.5)]">1.0x</span>
+          </label>
+          <div class="grid grid-cols-4 gap-1.5">
+            <button type="button" class="speed-btn px-2.5 py-1.5 text-xs rounded-lg font-medium bg-slate-800/80 text-slate-300 hover:bg-slate-700/80 transition" data-speed="0.75">0.75x</button>
+            <button type="button" class="speed-btn px-2.5 py-1.5 text-xs rounded-lg font-medium bg-indigo-600 text-white shadow-sm ring-1 ring-cyan-400/60 shadow-[0_0_15px_rgba(99,102,241,0.5)]" data-speed="1.0">1.0x</button>
+            <button type="button" class="speed-btn px-2.5 py-1.5 text-xs rounded-lg font-medium bg-slate-800/80 text-slate-300 hover:bg-slate-700/80 transition" data-speed="1.25">1.25x</button>
+            <button type="button" class="speed-btn px-2.5 py-1.5 text-xs rounded-lg font-medium bg-slate-800/80 text-slate-300 hover:bg-slate-700/80 transition" data-speed="1.5">1.5x</button>
+          </div>
+        </div>
+
+        <!-- Shadowing Repeat Mode -->
+        <div class="space-y-1.5">
+          <label class="text-xs font-medium text-slate-300 flex justify-between">
+            <span>Số lần lặp lại mỗi câu</span>
+            <span class="text-emerald-400 font-medium text-[11px]" id="repeatBadge">Lặp 2 lần (Khuyên dùng)</span>
+          </label>
+          <div class="grid grid-cols-3 gap-2">
+            <button type="button" class="repeat-btn px-2 py-1.5 text-xs rounded-lg font-medium bg-slate-800/80 text-slate-300 hover:bg-slate-700/80 transition" data-repeat="1">1 lần</button>
+            <button type="button" class="repeat-btn px-2 py-1.5 text-xs rounded-lg font-medium bg-emerald-600 text-white ring-1 ring-emerald-300/60 shadow-[0_0_15px_rgba(16,185,129,0.5)]" data-repeat="2">2 lần</button>
+            <button type="button" class="repeat-btn px-2 py-1.5 text-xs rounded-lg font-medium bg-slate-800/80 text-slate-300 hover:bg-slate-700/80 transition" data-repeat="3">3 lần</button>
+          </div>
+        </div>
+
+        <!-- Pause Interval for Shadowing -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between items-center text-xs">
+            <span class="text-slate-300 font-medium">Khoảng nghỉ để nhại lại</span>
+            <span id="intervalValueLabel" class="text-slate-400 font-mono">1.5 giây</span>
+          </div>
+          <input 
+            type="range" 
+            id="intervalRange" 
+            min="0.5" 
+            max="4.0" 
+            step="0.5" 
+            value="1.5" 
+            class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500 shadow-inner"
+          >
+          <div class="flex justify-between text-[10px] text-slate-500">
+            <span>0.5s (Nhanh)</span>
+            <span>1.5s (Vừa)</span>
+            <span>4.0s (Câu dài)</span>
+          </div>
+        </div>
+
+        <!-- Auto-scroll checkbox -->
+        <div class="flex items-center space-x-2 pt-1 text-xs text-slate-300">
+          <input type="checkbox" id="autoScrollCheckbox" checked class="w-4 h-4 rounded border-slate-700 bg-slate-800 text-indigo-600 focus:ring-indigo-500 accent-indigo-600">
+          <label for="autoScrollCheckbox" class="cursor-pointer select-none">Tự động cuộn theo câu đang phát</label>
+        </div>
+      </div>
+
+      <!-- CARD 3: Quản lý Bộ Nhớ Đệm Âm Thanh (Phát Tức Thì 0ms) -->
+      <div class="bg-slate-900/65 backdrop-blur-xl border border-white/10 hover:border-indigo-500/30 shadow-[0_8px_32px_0_rgba(0,0,0,0.36)] rounded-2xl p-4 lg:p-5 space-y-3 transition-all duration-300">
+        <div class="flex items-center justify-between pb-3 border-b border-white/10">
+          <div class="flex items-center space-x-2">
+            <div class="w-7 h-7 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <h2 class="text-sm font-semibold text-slate-200">Bộ Nhớ Đệm Âm Thanh</h2>
+          </div>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 font-medium shadow-[0_0_8px_rgba(99,102,241,0.2)]">
+            Phát Tức Thì 0ms
+          </span>
+        </div>
+
+        <p class="text-xs text-slate-400 leading-relaxed">
+          Âm thanh được nạp đệm sẵn giúp phát lại tức thì với độ trễ 0ms. Hoàn toàn miễn phí, không giới hạn lượt phát!
+        </p>
+
+        <div class="bg-slate-950/60 rounded-xl p-3 border border-white/10 flex items-center justify-between backdrop-blur-md">
+          <div>
+            <div class="text-[11px] text-slate-400">Số câu đã sẵn sàng:</div>
+            <div id="cacheTotalCount" class="text-base font-bold text-slate-100 font-mono">0 câu</div>
+          </div>
+          <button 
+            type="button" 
+            id="clearCacheBtn" 
+            class="px-3 py-1.5 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-lg border border-rose-500/30 hover:shadow-[0_0_12px_rgba(244,63,94,0.3)] transition-all flex items-center space-x-1 active:scale-95"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            <span>Làm Mới Bộ Nhớ</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- CARD 4: Nạp nhanh Bài Học Mẫu (HSK 2, 3, 4) -->
+      <div class="bg-slate-900/65 backdrop-blur-xl border border-white/10 hover:border-indigo-500/30 shadow-[0_8px_32px_0_rgba(0,0,0,0.36)] rounded-2xl p-4 lg:p-5 space-y-3 transition-all duration-300">
+        <div class="flex items-center space-x-2 pb-3 border-b border-white/10">
+          <div class="w-7 h-7 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
+          </div>
+          <h2 class="text-sm font-semibold text-slate-200">Bài Học Mẫu Có Sẵn</h2>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <button type="button" class="sample-lesson-btn text-left p-2.5 rounded-xl bg-slate-950/60 hover:bg-slate-800/80 border border-white/10 hover:border-indigo-500/50 hover:shadow-[0_0_15px_rgba(99,102,241,0.25)] transition-all group active:scale-95" data-lesson="bai7">
+            <div class="text-[11px] font-semibold text-indigo-400 group-hover:text-indigo-300">Bài 7 (HSK 2-3)</div>
+            <div class="text-xs text-slate-300 font-chinese truncate">吃中国菜 (Ăn món Trung)</div>
+          </button>
+
+          <button type="button" class="sample-lesson-btn text-left p-2.5 rounded-xl bg-slate-950/60 hover:bg-slate-800/80 border border-white/10 hover:border-emerald-500/50 hover:shadow-[0_0_15px_rgba(16,185,129,0.25)] transition-all group active:scale-95" data-lesson="bai8">
+            <div class="text-[11px] font-semibold text-emerald-400 group-hover:text-emerald-300">Bài 8 (HSK 3)</div>
+            <div class="text-xs text-slate-300 font-chinese truncate">买东西与讨价还价</div>
+          </button>
+
+          <button type="button" class="sample-lesson-btn text-left p-2.5 rounded-xl bg-slate-950/60 hover:bg-slate-800/80 border border-white/10 hover:border-purple-500/50 hover:shadow-[0_0_15px_rgba(168,85,247,0.25)] transition-all group active:scale-95" data-lesson="bai9">
+            <div class="text-[11px] font-semibold text-purple-400 group-hover:text-purple-300">Bài 9 (HSK 3)</div>
+            <div class="text-xs text-slate-300 font-chinese truncate">去机场接朋友</div>
+          </button>
+
+          <button type="button" class="sample-lesson-btn text-left p-2.5 rounded-xl bg-slate-950/60 hover:bg-slate-800/80 border border-white/10 hover:border-amber-500/50 hover:shadow-[0_0_15px_rgba(245,158,11,0.25)] transition-all group active:scale-95" data-lesson="bai10">
+            <div class="text-[11px] font-semibold text-amber-400 group-hover:text-amber-300">Bài 10 (HSK 4)</div>
+            <div class="text-xs text-slate-300 font-chinese truncate">健康与运动生活</div>
+          </button>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- ==================================================== -->
+    <!-- CỘT PHẢI: Khung dán bài & Danh sách câu (lg:col-span-8) -->
+    <!-- ==================================================== -->
+    <section class="lg:col-span-8 space-y-6">
+
+      <!-- KHUNG 1: Dán Văn Bản Tiếng Trung Bất Kỳ (Frosted Glassmorphism 2.0) -->
+      <div class="bg-slate-900/65 backdrop-blur-xl border border-white/10 hover:border-indigo-500/30 shadow-[0_8px_32px_0_rgba(0,0,0,0.36)] rounded-2xl p-5 space-y-4 transition-all duration-300">
+        <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-white/10">
+          <div>
+            <h2 class="text-base font-bold text-slate-100 flex items-center space-x-2">
+              <span>Đoạn Văn Tiếng Trung</span>
+              <span class="text-xs font-normal text-slate-400">(Tự động tách câu theo 。！？ và dòng mới)</span>
+            </h2>
+          </div>
+          <div class="flex items-center space-x-2 text-xs">
+            <button type="button" id="clearTextBtn" class="px-2.5 py-1 text-slate-400 hover:text-slate-200 hover:bg-slate-800/80 rounded-lg transition">
+              Xóa trống
+            </button>
+            <button type="button" id="pasteClipboardBtn" class="px-2.5 py-1 text-indigo-300 hover:text-indigo-200 hover:bg-indigo-500/10 rounded-lg transition border border-indigo-500/30 hover:shadow-[0_0_10px_rgba(99,102,241,0.25)]">
+              Dán từ bộ nhớ tạm
+            </button>
+          </div>
+        </div>
+
+        <div class="relative">
+          <textarea 
+            id="chineseTextInput" 
+            rows="5" 
+            placeholder="Dán bất kỳ đoạn văn bản tiếng Trung nào vào đây (HSK, giáo trình, tin tức, hội thoại)...&#10;Hệ thống sẽ tự động bóc tách thành các câu độc lập để luyện nghe từng câu." 
+            class="w-full bg-slate-950/60 border border-white/10 rounded-xl p-4 text-sm lg:text-base text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 transition font-chinese leading-relaxed resize-y backdrop-blur-md"
+          ></textarea>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between gap-3 pt-1">
+          <div class="flex items-center space-x-3 text-xs text-slate-400">
+            <span>Tổng số ký tự: <strong id="charCountLabel" class="text-slate-200 font-mono">0</strong></span>
+            <span>•</span>
+            <span>Số câu dự kiến: <strong id="estSentenceCountLabel" class="text-slate-200 font-mono">0</strong></span>
+          </div>
+
+          <div class="flex items-center space-x-2">
+            <button 
+              type="button" 
+              id="parseTextBtn" 
+              class="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl font-medium text-xs lg:text-sm shadow-lg shadow-indigo-600/30 hover:shadow-[0_0_20px_rgba(99,102,241,0.6)] ring-1 ring-indigo-400/40 flex items-center space-x-2 transition-all duration-200 transform active:scale-95"
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              </svg>
+              <span>Phân Tích & Nạp Câu Hỏi</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- KHUNG 2: Thanh Điều Khiển Phát Toàn Bộ (Master Playback Bar - Cosmic Floating Bar) -->
+      <div id="masterControlBar" class="bg-gradient-to-r from-slate-900/85 via-indigo-950/65 to-slate-900/85 rounded-2xl border border-indigo-500/30 p-4 shadow-[0_8px_32px_0_rgba(0,0,0,0.36)] shadow-indigo-950/50 ring-1 ring-cyan-400/25 backdrop-blur-xl sticky top-[68px] z-30 transition-all">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          
+          <!-- Trạng thái câu đang phát -->
+          <div class="flex items-center space-x-3">
+            <div id="playbackIndicatorIcon" class="w-10 h-10 rounded-xl bg-slate-800/80 text-slate-400 flex items-center justify-center border border-white/10 shadow-inner">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <div class="flex items-center space-x-2">
+                <span id="playingIndexText" class="text-sm font-bold text-slate-200">Sẵn sàng luyện tập</span>
+                <span id="repeatRoundBadge" class="hidden text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium shadow-[0_0_10px_rgba(16,185,129,0.2)]">Lặp 1/2</span>
+              </div>
+              <p id="playingStatusSubtext" class="text-xs text-slate-400">Chọn câu hoặc bấm 'Phát Toàn Bộ' để bắt đầu phát ngay</p>
+            </div>
+          </div>
+
+          <!-- Nhóm nút điều khiển trung tâm -->
+          <div class="flex items-center space-x-2 sm:space-x-3">
+            <!-- Nút Prev -->
+            <button 
+              type="button" 
+              id="prevSentenceBtn" 
+              class="p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white disabled:opacity-40 disabled:hover:bg-slate-800/80 transition-all border border-white/5 active:scale-95"
+              title="Câu trước"
+              disabled
+            >
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+
+            <!-- Nút Phát Toàn Bộ / Tạm Dừng Chính -->
+            <button 
+              type="button" 
+              id="playAllMasterBtn" 
+              class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs sm:text-sm shadow-lg shadow-indigo-600/40 hover:shadow-[0_0_20px_rgba(99,102,241,0.6)] ring-1 ring-cyan-400/40 flex items-center space-x-2 transition-all duration-200 transform active:scale-95"
+            >
+              <svg id="playAllIcon" class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z"/>
+              </svg>
+              <span id="playAllText">Phát Toàn Bộ Bài</span>
+            </button>
+
+            <!-- Nút Dừng Hẳn -->
+            <button 
+              type="button" 
+              id="stopMasterBtn" 
+              class="p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-rose-400 disabled:opacity-40 transition-all border border-white/5 active:scale-95" 
+              title="Dừng phát"
+              disabled
+            >
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <rect x="6" y="6" width="12" height="12" rx="2" stroke-width="2"/>
+              </svg>
+            </button>
+
+            <!-- Nút Next -->
+            <button 
+              type="button" 
+              id="nextSentenceBtn" 
+              class="p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white disabled:opacity-40 disabled:hover:bg-slate-800/80 transition-all border border-white/5 active:scale-95"
+              title="Câu sau"
+              disabled
+            >
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+
+          <!-- Tải trước vào bộ nhớ đệm -->
+          <div class="flex items-center space-x-2">
+            <button 
+              type="button" 
+              id="precacheAllBtn" 
+              class="text-xs px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-indigo-300 border border-indigo-500/30 hover:shadow-[0_0_15px_rgba(99,102,241,0.4)] transition-all flex items-center space-x-1.5 active:scale-95"
+              title="Nạp trước toàn bộ âm thanh vào bộ nhớ đệm để phát siêu mượt không độ trễ"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+              </svg>
+              <span>Nạp Đệm Toàn Bài</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="w-full bg-slate-950/80 rounded-full h-1.5 mt-3 overflow-hidden shadow-inner">
+          <div id="masterProgressBar" class="bg-gradient-to-r from-indigo-500 via-cyan-400 to-purple-500 h-1.5 rounded-full transition-all duration-300 w-0 shadow-[0_0_10px_rgba(34,211,238,0.5)]"></div>
+        </div>
+      </div>
+
+      <!-- KHUNG 3: Danh Sách Các Câu Đã Bóc Tách (Sentences Interactive List) -->
+      <div class="space-y-3">
+        <div class="flex items-center justify-between px-1">
+          <div class="flex items-center space-x-2">
+            <h3 class="text-sm font-semibold text-slate-300">Danh Sách Câu Tương Tác</h3>
+            <span id="renderedSentencesCount" class="text-xs px-2.5 py-0.5 rounded-full bg-slate-800/80 text-cyan-300 font-mono border border-white/5">0 câu</span>
+          </div>
+
+          <!-- Toggles for view -->
+          <div class="flex flex-wrap items-center space-x-3 text-xs">
+            <label class="flex items-center space-x-1.5 text-slate-400 hover:text-slate-200 cursor-pointer">
+              <input type="checkbox" id="showPinyinCheckbox" checked class="w-3.5 h-3.5 rounded bg-slate-800 border-slate-700 text-indigo-600 accent-indigo-600">
+              <span>Hiện Pinyin</span>
+            </label>
+            <label class="flex items-center space-x-1.5 text-slate-400 hover:text-slate-200 cursor-pointer">
+              <input type="checkbox" id="showVietnameseCheckbox" checked class="w-3.5 h-3.5 rounded bg-slate-800 border-slate-700 text-indigo-600 accent-indigo-600">
+              <span>Hiện Tiếng Việt</span>
+            </label>
+            <div class="h-3 w-px bg-slate-800"></div>
+            <!-- Nút bấm Dịch AI Ngữ Cảnh -->
+            <button type="button" id="translateContextAIBtn" class="px-2.5 py-1 text-[11px] font-medium rounded-lg bg-purple-950/60 hover:bg-purple-900/60 text-purple-300 hover:text-purple-200 border border-purple-500/40 hover:shadow-[0_0_15px_rgba(168,85,247,0.5)] flex items-center space-x-1 transition-all shadow-sm active:scale-95" title="Dịch toàn bài chuẩn ngữ cảnh bằng Gemini AI">
+              <svg class="w-3.5 h-3.5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+              </svg>
+              <span id="translateContextBtnText">Dịch AI Ngữ Cảnh</span>
+            </button>
+            <div class="h-3 w-px bg-slate-800"></div>
+            <!-- Font size selector -->
+            <button type="button" id="toggleFontSizeBtn" class="text-slate-400 hover:text-slate-200 transition" title="Thay đổi cỡ chữ Hán">
+              Cỡ chữ: <span id="currentFontSizeLabel" class="font-medium text-indigo-400">Lớn</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Container chứa các thẻ câu -->
+        <div id="sentencesContainer" class="space-y-3">
+          <!-- Placeholder khi chưa có câu nào -->
+          <div id="emptySentencesPlaceholder" class="p-12 text-center border-2 border-dashed border-white/10 rounded-2xl bg-slate-900/40 backdrop-blur-md space-y-3">
+            <div class="w-12 h-12 rounded-full bg-slate-800/80 text-slate-500 flex items-center justify-center mx-auto border border-white/5">
+              <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+              </svg>
+            </div>
+            <div class="space-y-1">
+              <p class="text-sm font-medium text-slate-300">Chưa có bài học nào được nạp</p>
+              <p class="text-xs text-slate-500 max-w-sm mx-auto">Dán bài văn tiếng Trung vào ô bên trên và bấm "Phân Tích & Nạp Câu", hoặc bấm chọn nhanh một bài mẫu (Bài 7, Bài 8) ở cột trái.</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ======================================================== -->
+      <!-- KHUNG 4: Trợ Lý AI: Đọc Hiểu & Luyện Tập Ngữ Cảnh (Gemini - Frosted Glassmorphism 2.0) -->
+      <!-- ======================================================== -->
+      <div id="geminiAICard" class="bg-slate-900/65 backdrop-blur-xl rounded-2xl border border-white/10 hover:border-purple-500/30 p-5 shadow-[0_8px_32px_0_rgba(0,0,0,0.36)] space-y-5 transition-all duration-300">
+        <!-- Header -->
+        <div class="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-white/10">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-600 via-indigo-600 to-pink-500 flex items-center justify-center shadow-lg shadow-purple-500/30 ring-1 ring-cyan-400/30">
+              <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <div>
+              <div class="flex items-center space-x-2">
+                <h2 class="text-base font-bold bg-gradient-to-r from-white via-purple-200 to-indigo-300 bg-clip-text text-transparent">
+                  Trợ Lý AI: Đọc Hiểu & Luyện Tập Ngữ Cảnh
+                </h2>
+                <span id="geminiModelBadge" class="text-[10px] uppercase font-bold px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-[0_0_10px_rgba(168,85,247,0.2)]">
+                  Gemini AI
+                </span>
+              </div>
+              <p class="text-xs text-slate-400">Phân tích bối cảnh bài đọc, cấu trúc ngữ pháp & tạo đề trắc nghiệm thông minh</p>
+            </div>
+          </div>
+
+          <!-- Nút bấm "Phân Tích & Tạo Câu Hỏi" -->
+          <button 
+            type="button" 
+            id="generateAIQuizBtn" 
+            class="px-4 py-2.5 bg-gradient-to-r from-purple-600 via-indigo-600 to-indigo-500 hover:from-purple-500 hover:to-indigo-400 text-white rounded-xl font-medium text-xs sm:text-sm shadow-lg shadow-purple-600/30 hover:shadow-[0_0_25px_rgba(168,85,247,0.6)] ring-1 ring-purple-400/40 flex items-center space-x-2 transition-all duration-200 transform active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
+          >
+            <svg id="generateAIBtnIcon" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+            </svg>
+            <span id="generateAIBtnText">Phân Tích & Tạo Câu Hỏi</span>
+          </button>
+        </div>
+
+        <!-- Ô nhập Gemini API Key -->
+        <div class="bg-slate-950/60 rounded-xl p-3.5 border border-white/10 space-y-2 backdrop-blur-md">
+          <div class="flex flex-wrap items-center justify-between gap-1 text-xs">
+            <label for="geminiApiKeyInput" class="font-medium text-slate-300 flex items-center space-x-1.5">
+              <span>Google Gemini API Key</span>
+              <span id="geminiKeyStatusDot" class="w-2 h-2 rounded-full bg-amber-400"></span>
+            </label>
+            <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="text-[11px] text-purple-400 hover:text-purple-300 transition underline flex items-center space-x-1">
+              <span>Lấy API Key miễn phí tại Google AI Studio</span>
+              <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+            </a>
+          </div>
+          <div class="relative">
+            <input 
+              type="password" 
+              id="geminiApiKeyInput" 
+              placeholder="Dán Gemini API Key của bạn (AIzaSy...)" 
+              class="w-full bg-slate-900/80 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-400 transition pr-10 font-mono backdrop-blur-md"
+            >
+            <button 
+              type="button" 
+              id="toggleGeminiKeyBtn" 
+              class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition" 
+              title="Hiện/Ẩn Key"
+            >
+              <svg id="geminiEyeIcon" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+            </button>
+          </div>
+          <div class="flex items-center justify-between text-[11px] text-slate-500">
+            <span>Key được lưu an toàn trong trình duyệt (localStorage: hsk_gemini_api_key).</span>
+            <span id="geminiKeyStatusText" class="text-amber-400">Chưa nhập key</span>
+          </div>
+        </div>
+
+        <!-- Trạng thái Loading khi AI đang xử lý -->
+        <div id="aiLoadingState" class="hidden py-8 px-4 text-center space-y-3 bg-slate-950/40 rounded-xl border border-purple-500/20">
+          <div class="relative w-12 h-12 mx-auto flex items-center justify-center">
+            <div class="absolute inset-0 rounded-full border-2 border-purple-500/20 animate-ping"></div>
+            <div class="w-10 h-10 rounded-full border-2 border-purple-500 border-t-transparent animate-spin"></div>
+          </div>
+          <div class="space-y-1">
+            <h4 class="text-sm font-semibold text-purple-200">Gemini AI đang phân tích bài đọc...</h4>
+            <p class="text-xs text-slate-400">Đang tổng hợp cấp độ HSK, trích xuất cấu trúc ngữ pháp và tạo bộ câu hỏi ngữ cảnh tương tác.</p>
+          </div>
+        </div>
+
+        <!-- Trạng thái Trống (Khi chưa tạo bài) -->
+        <div id="aiEmptyPlaceholder" class="p-8 text-center border-2 border-dashed border-slate-800 rounded-xl bg-slate-950/30 space-y-2">
+          <div class="w-10 h-10 rounded-full bg-purple-500/10 text-purple-400 flex items-center justify-center mx-auto">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+            </svg>
+          </div>
+          <p class="text-xs font-medium text-slate-300">Chưa có dữ liệu bài tập ngữ cảnh</p>
+          <p class="text-[11px] text-slate-500 max-w-md mx-auto">Nhập API Key ở trên và bấm "Phân Tích & Tạo Câu Hỏi" để AI tự động tạo bài trắc nghiệm cùng bảng phân tích ngữ pháp.</p>
+        </div>
+
+        <!-- Nội dung hiển thị sau khi AI phân tích (Tabs & Content) -->
+        <div id="aiResultContainer" class="hidden space-y-4">
+          <!-- Hệ Thống Tabs -->
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2">
+            <div class="flex items-center space-x-2">
+              <!-- Tab 1 Button -->
+              <button 
+                type="button" 
+                id="tabQuizBtn" 
+                class="ai-tab-btn px-3.5 py-2 rounded-xl text-xs font-semibold bg-indigo-600 text-white shadow-md shadow-indigo-600/30 flex items-center space-x-2 transition"
+                data-tab="quiz"
+              >
+                <span>📝 Trắc Nghiệm Ngữ Cảnh</span>
+                <span id="quizBadgeCount" class="text-[10px] px-1.5 py-0.5 rounded-full bg-white/20 text-white font-mono">0</span>
+              </button>
+
+              <!-- Tab 2 Button -->
+              <button 
+                type="button" 
+                id="tabAnalysisBtn" 
+                class="ai-tab-btn px-3.5 py-2 rounded-xl text-xs font-medium bg-slate-800/80 text-slate-400 hover:text-slate-200 transition flex items-center space-x-2"
+                data-tab="analysis"
+              >
+                <span>📖 Đọc Hiểu & Ngữ Pháp</span>
+              </button>
+            </div>
+
+            <!-- Live Score Indicator -->
+            <div id="liveScoreBox" class="flex items-center space-x-2 bg-emerald-950/60 border border-emerald-500/30 px-3 py-1.5 rounded-xl text-xs text-emerald-300 font-medium">
+              <span>Điểm số:</span>
+              <strong id="liveScoreText" class="font-mono text-sm text-emerald-400">0/0</strong>
+            </div>
+          </div>
+
+          <!-- TAB 1 CONTENT: Bài Tập Trắc Nghiệm Ngữ Cảnh -->
+          <div id="tabContentQuiz" class="space-y-4">
+            <div id="quizQuestionsList" class="space-y-4">
+              <!-- Rendered Questions -->
+            </div>
+          </div>
+
+          <!-- TAB 2 CONTENT: Đọc Hiểu & Ngữ Pháp Trọng Tâm -->
+          <div id="tabContentAnalysis" class="hidden space-y-4">
+            <!-- HSK Level & Summary Card -->
+            <div class="bg-slate-950/60 rounded-xl p-4 border border-white/10 space-y-3 backdrop-blur-md">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center space-x-1.5">
+                  <span>🎯 Cấp Độ Ước Lượng:</span>
+                  <span id="aiHskLevelBadge" class="text-xs font-bold text-purple-400 bg-purple-500/10 border border-purple-500/30 px-2 py-0.5 rounded-md shadow-[0_0_10px_rgba(168,85,247,0.2)]">HSK 3</span>
+                </span>
+              </div>
+              <div class="space-y-1">
+                <h4 class="text-xs font-semibold text-slate-200">Tóm Tắt Bối Cảnh Đoạn Văn:</h4>
+                <p id="aiSummaryText" class="text-xs text-slate-300 leading-relaxed bg-slate-900/60 p-3 rounded-lg border border-white/10 backdrop-blur-md">
+                  <!-- Summary -->
+                </p>
+              </div>
+            </div>
+
+            <!-- Vocabulary Section -->
+            <div class="space-y-2">
+              <h4 class="text-xs font-semibold text-indigo-300 flex items-center space-x-1.5">
+                <span>📚 Từ Vựng Trọng Tâm</span>
+              </h4>
+              <div id="aiVocabularyList" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <!-- Vocabulary Cards -->
+              </div>
+            </div>
+
+            <!-- Grammar Section -->
+            <div class="space-y-2">
+              <h4 class="text-xs font-semibold text-purple-300 flex items-center space-x-1.5">
+                <span>💡 Cấu Trúc Ngữ Pháp Trọng Điểm</span>
+              </h4>
+              <div id="aiGrammarList" class="space-y-2">
+                <!-- Grammar Cards -->
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Global Audio Player (Hidden element for playing Google TTS streams) -->
+  <audio id="globalAudioPlayer" class="hidden" preload="auto"></audio>
+
+  <!-- Notification Toast Container -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none max-w-md w-full px-4"></div>
+
+  <!-- JAVASCRIPT LOGIC -->
+  <!-- Main Application Logic -->
+  <!-- Cosmic Welcome Modal -->
+  <div id="welcomeModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900/90 border border-indigo-500/40 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-[0_0_50px_rgba(99,102,241,0.35)] relative overflow-hidden animate-cosmic-pop holographic-modal">
+      <!-- Trang trí vũ trụ -->
+      <div class="absolute -top-20 -right-20 w-56 h-56 bg-purple-600/20 rounded-full blur-[80px] animate-pulse-subtle"></div>
+      <div class="absolute -bottom-20 -left-20 w-56 h-56 bg-cyan-500/20 rounded-full blur-[80px] animate-pulse-subtle" style="animation-delay: 1s;"></div>
+      
+      <div class="relative z-10 flex flex-col items-center text-center space-y-5">
+        <div class="text-5xl drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]">🌟</div>
+        <div>
+          <h2 class="text-xl font-bold bg-gradient-to-r from-white via-indigo-200 to-purple-300 bg-clip-text text-transparent">
+            Chào Mừng Đến Với HSK Audio Lab
+          </h2>
+          <p class="text-xs text-slate-400 mt-2">Khởi động hành trình luyện nghe & đọc hiểu tiếng Trung</p>
+        </div>
+        
+        <div class="w-full pt-3 space-y-4">
+          <input 
+            type="text" 
+            id="userNameInput" 
+            placeholder="Nhập tên của bạn..." 
+            class="w-full bg-slate-950/60 border border-slate-700 rounded-xl px-4 py-3.5 text-base text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 transition text-center font-medium shadow-inner"
+            maxlength="20"
+          >
+          <button 
+            type="button" 
+            id="saveUserNameBtn" 
+            class="w-full px-4 py-3.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-indigo-600/30 hover:shadow-[0_0_20px_rgba(99,102,241,0.6)] ring-1 ring-indigo-400/40 flex items-center justify-center space-x-2 transition-all duration-200 transform active:scale-95"
+          >
+            <span>Bắt Đầu Hành Trình 🚀</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
