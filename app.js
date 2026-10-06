@@ -471,8 +471,10 @@
       if (state.browserVoiceURI && browserChineseVoices.length > 0) {
         const v = browserChineseVoices.find(voice => (voice.voiceURI === state.browserVoiceURI || voice.name === state.browserVoiceURI));
         if (v) utterance.voice = v;
-      } else if (browserChineseVoices.length > 0) {
-        utterance.voice = browserChineseVoices[0];
+      } else {
+        const voices = window.speechSynthesis.getVoices();
+        const zhVoice = voices.find(v => v.lang.startsWith('zh') || v.lang.includes('cmn'));
+        if (zhVoice) utterance.voice = zhVoice;
       }
 
       let ended = false;
@@ -486,9 +488,9 @@
       utterance.onerror = (e) => {
         if (ended) return;
         ended = true;
-        console.warn('Web Speech error:', e);
+        console.warn('Web Speech error, continuing smoothly:', e);
         currentSpeechUtterance = null;
-        if (onError) onError(e);
+        if (onEnded) onEnded();
       };
 
       currentSpeechUtterance = utterance;
@@ -2025,6 +2027,23 @@ Chỉ xuất JSON thuần túy, không có văn bản giải thích nào khác n
     // Run when DOM ready
     window.addEventListener('DOMContentLoaded', initApp);
 
+    // --- MOBILE AUDIO UNLOCK (Audio Unlock on First Touch) ---
+    let audioUnlocked = false;
+    function unlockAudio() {
+      if (audioUnlocked) return;
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const buffer = audioCtx.createBuffer(1, 1, 22050);
+      const source = audioCtx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(audioCtx.destination);
+      source.start(0);
+      audioUnlocked = true;
+      document.removeEventListener('touchstart', unlockAudio);
+      document.removeEventListener('click', unlockAudio);
+    }
+    document.addEventListener('touchstart', unlockAudio, { once: true });
+    document.addEventListener('click', unlockAudio, { once: true });
+
     // --- 3D INTERACTIVE STARFIELD CANVAS ---
     function initStarfield() {
       const canvas = document.getElementById('spaceCanvas');
@@ -2072,9 +2091,10 @@ Chỉ xuất JSON thuần túy, không có văn bản giải thích nào khác n
 
           if (px >= -width / 2 && px <= width / 2 && py >= -height / 2 && py <= height / 2) {
             const size = (1 - star.z / 1000) * star.size * 2;
+            const safeRadius = Math.max(0.1, Math.abs(size || 1));
             const opacity = (1 - star.z / 1000) * 0.6;
             ctx.beginPath();
-            ctx.arc(px, py, size, 0, Math.PI * 2);
+            ctx.arc(px, py, safeRadius, 0, Math.PI * 2);
             ctx.fillStyle = star.color;
             ctx.globalAlpha = opacity;
             ctx.fill();
