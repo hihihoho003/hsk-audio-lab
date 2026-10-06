@@ -237,7 +237,7 @@
       };
 
       toast.querySelector('button').onclick = closeToast;
-      setTimeout(closeToast, 4000);
+      setTimeout(closeToast, 2500);
     }
 
     // --- PINYIN GENERATOR UTILITY ---
@@ -954,16 +954,16 @@
 
         const card = document.createElement('div');
         card.id = `sentence-card-${i}`;
-        card.className = `sentence-card bg-slate-900/65 hover:bg-slate-900/85 backdrop-blur-xl border border-white/10 hover:border-indigo-500/30 shadow-[0_8px_32px_0_rgba(0,0,0,0.25)] rounded-2xl p-4 lg:p-5 transition-all duration-300 group relative`;
+        card.className = `sentence-card bg-slate-900/65 hover:bg-slate-900/85 backdrop-blur-xl border border-white/10 hover:border-indigo-500/30 shadow-[0_8px_32px_0_rgba(0,0,0,0.25)] rounded-2xl p-3.5 lg:p-5 transition-all duration-300 group relative`;
 
         const fontClass = state.fontSizeMode === 'xl' ? 'text-xl lg:text-2xl' : 
                          state.fontSizeMode === 'lg' ? 'text-lg lg:text-xl' : 'text-base lg:text-lg';
 
         card.innerHTML = `
-          <div class="flex items-start justify-between gap-3">
+          <div class="flex items-start justify-between gap-2 sm:gap-3">
             
             <!-- Cột nội dung câu -->
-            <div class="flex-1 space-y-1.5 cursor-pointer select-text" onclick="window.handleSentenceClick(${i})">
+            <div class="flex-1 min-w-0 space-y-2 cursor-pointer select-text" onclick="window.handleSentenceClick(${i})">
               
               <!-- Header của câu: STT, Pinyin, Badge -->
               <div class="flex flex-wrap items-center gap-2">
@@ -1005,7 +1005,7 @@
             </div>
 
             <!-- Cột nút thao tác bên phải -->
-            <div class="flex items-center space-x-1.5 shrink-0 self-center">
+            <div class="flex items-center space-x-1 sm:space-x-1.5 shrink-0 ml-1">
               
               <!-- Nút Nghe câu này -->
               <button 
