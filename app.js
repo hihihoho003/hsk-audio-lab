@@ -930,11 +930,6 @@
       renderSentencesList();
       updateMasterBarUI();
       showToast(`Đã phân tích thành công ${state.sentences.length} câu! Bấm phát ngay.`, 'success');
-
-      // Tự động kích hoạt Dịch AI Ngữ Cảnh nếu chưa có bản dịch sẵn và đã nhập Gemini API Key
-      if (!customTranslations && aiState.apiKey && aiState.apiKey.trim().length > 10) {
-        translateSentencesWithGemini(true);
-      }
     }
 
     function renderSentencesList() {
@@ -1133,9 +1128,8 @@
 
     // Danh sách model ưu tiên từ cao xuống thấp
     const GEMINI_MODELS_CASCADE = [
-      'gemini-3.1-pro-preview', // Ưu tiên 1: Trí tuệ cao nhất, phân tích ngữ pháp chuyên sâu
-      'gemini-3.8-flash',       // Ưu tiên 2: Tốc độ cao thế hệ mới nhất
-      'gemini-3.1-flash-lite'   // Ưu tiên 3: Dự phòng siêu nhẹ, cực kỳ ổn định
+      'gemini-3.1-flash-lite',
+      'gemini-3.8-flash'
     ];
 
     async function callGeminiApi(apiKey, promptText) {
@@ -1150,7 +1144,7 @@
         updateGeminiModelBadge(cleanModel);
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000); // Timeout 15s
+        const timeoutId = setTimeout(() => controller.abort(), 45000); // Timeout 45s
 
         try {
           const response = await fetch(endpoint, {
@@ -1192,8 +1186,8 @@
         } catch (err) {
           clearTimeout(timeoutId);
           if (err.name === 'AbortError') {
-            console.warn(`⚠️ Yêu cầu đến model ${cleanModel} quá hạn (timeout 15s). Chuyển model...`);
-            lastError = new Error(`[${cleanModel}] Request Timeout (15s)`);
+            console.warn(`⚠️ Yêu cầu đến model ${cleanModel} quá hạn (timeout 45s). Chuyển model...`);
+            lastError = new Error(`[${cleanModel}] Request Timeout (45s)`);
             continue;
           }
           console.warn(`⚠️ Lỗi kết nối đến model ${cleanModel} (${err.message}). Chuyển model...`);
@@ -1297,7 +1291,13 @@ Quy định bắt buộc:
         // Cập nhật huy hiệu (Badge) trên giao diện: Đang xử lý bằng: ${model}
         updateGeminiModelBadge(usedModel);
 
-        showToast(`Đang xử lý bằng: ${usedModel}`, 'success');
+        showToast(`Đã tạo trắc nghiệm bằng: ${usedModel}`, 'success');
+
+        // Gộp logic dịch tuần tự sau khi tạo trắc nghiệm (Rate limit prevention)
+        const needsTranslation = state.sentences.some(s => !s.translation || s.translation === '...');
+        if (needsTranslation) {
+          await translateSentencesWithGemini(true);
+        }
       } catch (err) {
         console.error('Gemini error:', err);
         showToast('Máy chủ Google AI đang bận. Vui lòng bấm thử lại sau giây lát!', 'error');
