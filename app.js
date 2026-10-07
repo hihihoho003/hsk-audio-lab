@@ -1131,14 +1131,11 @@
       }
     }
 
-    // Danh sách model ưu tiên từ cao xuống thấp (ưu tiên cả PRO lẫn các bản Flash GA ổn định)
+    // Danh sách model ưu tiên từ cao xuống thấp
     const GEMINI_MODELS_CASCADE = [
-      'gemini-3.8-flash',       // Dòng Flash Flagship thông minh mới nhất
-      'gemini-2.5-pro',         // Model Pro cực kỳ thông minh, tư duy ngữ pháp sâu
-      'gemini-3.1-pro-preview', // Bản Pro cao nhất
-      'gemini-2.5-flash',       // Bản Flash chính thức (GA) - cực kỳ ổn định, ít bị 503
-      'gemini-3.5-flash',
-      'gemini-3.1-flash-lite'   // Chỉ là chốt chặn cuối cùng
+      'gemini-3.1-pro-preview', // Ưu tiên 1: Trí tuệ cao nhất, phân tích ngữ pháp chuyên sâu
+      'gemini-3.8-flash',       // Ưu tiên 2: Tốc độ cao thế hệ mới nhất
+      'gemini-3.1-flash-lite'   // Ưu tiên 3: Dự phòng siêu nhẹ, cực kỳ ổn định
     ];
 
     async function callGeminiApi(apiKey, promptText) {
@@ -1149,85 +1146,63 @@
         const cleanModel = model.replace(/^models\//, '');
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
-        // Cơ chế retry khi gặp lỗi 503 (Server Overloaded): delay 1.5s và thử lại thêm 1 lần (Retry 1 time)
-        const MAX_RETRIES_ON_503 = 1;
-        let retries503Count = 0;
+        // Cập nhật huy hiệu UI trước khi gọi
+        updateGeminiModelBadge(cleanModel);
 
-        while (retries503Count <= MAX_RETRIES_ON_503) {
-          try {
-            const response = await fetch(endpoint, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                contents: [
-                  {
-                    parts: [{ text: promptText }]
-                  }
-                ],
-                generationConfig: {
-                  responseMimeType: 'application/json'
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // Timeout 15s
+
+        try {
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              contents: [
+                {
+                  parts: [{ text: promptText }]
                 }
-              })
-            });
-
-            // 1. Phản hồi thành công
-            if (response.ok) {
-              const resData = await response.json();
-              return { data: resData, model: cleanModel };
-            }
-
-            // 2. Xử lý lỗi 503 (Server Overloaded): Delay 1.5s và thử lại thêm 1 lần
-            if (response.status === 503) {
-              if (retries503Count < MAX_RETRIES_ON_503) {
-                retries503Count++;
-                console.warn(`⏳ Model ${cleanModel} phản hồi HTTP 503 (Máy chủ quá tải). Đang chờ 1.5s để thử lại lần ${retries503Count + 1}...`);
-                await new Promise(resolve => setTimeout(resolve, 1500));
-                continue; // Thử lại chính model này
-              } else {
-                console.warn(`⚠️ Model ${cleanModel} vẫn bị lỗi 503 sau khi thử lại, chuyển sang model tiếp theo trong cascade...`);
-                let errDesc = 'HTTP 503 (Máy chủ Google quá tải)';
-                try {
-                  const errJson = await response.json();
-                  if (errJson?.error?.message) errDesc = errJson.error.message;
-                } catch (_) {}
-                lastError = new Error(`[${cleanModel}] ${errDesc}`);
-                break; // Thoát vòng lặp while để chuyển sang model kế tiếp trong GEMINI_MODELS_CASCADE
+              ],
+              generationConfig: {
+                responseMimeType: 'application/json'
               }
-            }
+            }),
+            signal: controller.signal
+          });
 
-            // 3. Xử lý lỗi 429 (Rate limit): In cảnh báo nhẹ ra console và chuyển ngay sang model kế tiếp
-            if (response.status === 429) {
-              console.warn(`⚠️ Model ${cleanModel} chạm giới hạn tần suất HTTP 429 (Rate limit). Chuyển ngay sang model kế tiếp...`);
-              let errDesc = 'HTTP 429 (Rate limit / Quota exceeded)';
-              try {
-                const errJson = await response.json();
-                if (errJson?.error?.message) errDesc = errJson.error.message;
-              } catch (_) {}
-              lastError = new Error(`[${cleanModel}] ${errDesc}`);
-              break; // Thoát vòng lặp while ngay lập tức để chuyển sang model kế tiếp
-            }
+          clearTimeout(timeoutId);
 
-            // 4. Các lỗi HTTP khác (404, 400, 500,...)
-            console.warn(`⚠️ Model ${cleanModel} không khả dụng (${response.status}), đang thử model tiếp theo...`);
-            let errDesc = `HTTP ${response.status}`;
-            try {
-              const errJson = await response.json();
-              if (errJson?.error?.message) errDesc = errJson.error.message;
-            } catch (_) {}
-            lastError = new Error(`[${cleanModel}] ${errDesc}`);
-            break; // Thoát vòng lặp while để chuyển sang model kế tiếp
-
-          } catch (err) {
-            console.warn(`⚠️ Lỗi mạng kết nối đến model ${cleanModel} (${err.message}), đang thử model tiếp theo...`);
-            lastError = err;
-            break; // Thoát vòng lặp while để sang model tiếp theo
+          // 1. Phản hồi thành công
+          if (response.ok) {
+            const resData = await response.json();
+            return { data: resData, model: cleanModel };
           }
+
+          // 2. Lỗi 503, 429 hoặc các lỗi HTTP khác -> Bỏ qua retry, chuyển sang model kế tiếp
+          console.warn(`⚠️ Model ${cleanModel} phản hồi HTTP ${response.status}. Chuyển sang model tiếp theo...`);
+          let errDesc = `HTTP ${response.status}`;
+          try {
+            const errJson = await response.json();
+            if (errJson?.error?.message) errDesc = errJson.error.message;
+          } catch (_) {}
+          lastError = new Error(`[${cleanModel}] ${errDesc}`);
+          continue;
+
+        } catch (err) {
+          clearTimeout(timeoutId);
+          if (err.name === 'AbortError') {
+            console.warn(`⚠️ Yêu cầu đến model ${cleanModel} quá hạn (timeout 15s). Chuyển model...`);
+            lastError = new Error(`[${cleanModel}] Request Timeout (15s)`);
+            continue;
+          }
+          console.warn(`⚠️ Lỗi kết nối đến model ${cleanModel} (${err.message}). Chuyển model...`);
+          lastError = err;
+          continue; 
         }
       }
 
-      throw lastError || new Error('Tất cả các model trong danh sách GEMINI_MODELS_CASCADE đều không khả dụng.');
+      throw lastError || new Error('Tất cả các model trong danh sách đều không khả dụng.');
     }
 
     async function handleGenerateAIQuiz() {
@@ -1325,7 +1300,7 @@ Quy định bắt buộc:
         showToast(`Đang xử lý bằng: ${usedModel}`, 'success');
       } catch (err) {
         console.error('Gemini error:', err);
-        showToast(`Lỗi Gemini API: ${err.message || 'Không thể tạo bài tập'}`, 'error');
+        showToast('Máy chủ Google AI đang bận. Vui lòng bấm thử lại sau giây lát!', 'error');
         if (!aiState.quizData) {
           aiEmptyPlaceholder.classList.remove('hidden');
         } else {
@@ -1641,7 +1616,7 @@ Chỉ xuất JSON thuần túy, không có văn bản giải thích nào khác n
       } catch (err) {
         console.error('Gemini translation error:', err);
         if (!isAuto) {
-          showToast(`Lỗi dịch AI: ${err.message || 'Không thể dịch ngữ cảnh'}`, 'error');
+          showToast('Máy chủ Google AI đang bận. Vui lòng bấm thử lại sau giây lát!', 'error');
         }
         // Khôi phục placeholder nếu bị lỗi
         state.sentences.forEach((s, idx) => {
